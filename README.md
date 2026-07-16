@@ -37,7 +37,7 @@ plus a stats panel with mean/median terminal wealth, lifetime
 (buy-and-hold) percentage returns as reported in the paper, quantiles,
 skewness, the share of paths that end positive, beat the risk-free
 asset, or beat the mean outcome, and the concentration of wealth
-creation: the smallest share of paths that accounts for 50% and 100% of
+creation: the smallest share of paths that accounts for 100% of
 net wealth created in excess of the risk-free asset (Bessembinder's
 finding that a few percent of stocks account for all net wealth
 creation, while the rest collectively just match T-bills).

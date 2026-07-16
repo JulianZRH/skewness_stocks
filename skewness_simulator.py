@@ -76,20 +76,16 @@ def skewness(x):
 
 
 def wealth_concentration(terminal, rf_multiple):
-    """Smallest share of paths accounting for 50% / 100% of net wealth
+    """Smallest share of paths accounting for 100% of net wealth
     creation in excess of the risk-free outcome (Bessembinder's SWC
     concentration: the paths outside the top group collectively net to
-    zero excess wealth).  Returns (None, None) if no net wealth is
-    created."""
+    zero excess wealth).  Returns None if no net wealth is created."""
     excess = np.sort(terminal - rf_multiple)[::-1]
     total = excess.sum()
     if total <= 0:
-        return None, None
+        return None
     cum = np.cumsum(excess)
-    n = excess.size
-    conc_half = (np.argmax(cum >= 0.5 * total) + 1) / n
-    conc_all = (np.argmax(cum >= total) + 1) / n
-    return conc_half, conc_all
+    return (np.argmax(cum >= total) + 1) / excess.size
 
 
 def summary_stats(terminal, years, risk_free):
@@ -97,9 +93,8 @@ def summary_stats(terminal, years, risk_free):
     rf_multiple = (1.0 + risk_free) ** years
     mean = terminal.mean()
     median = np.median(terminal)
-    conc_half, conc_all = wealth_concentration(terminal, rf_multiple)
+    conc_all = wealth_concentration(terminal, rf_multiple)
     return {
-        "conc_half": conc_half,
         "conc_all": conc_all,
         "mean": mean,
         "median": median,
@@ -338,7 +333,6 @@ class SimulatorApp:
             lines.append("  no net wealth created")
         else:
             lines += [
-                f"  half from top   {st['conc_half']:>10.1%}",
                 f"  all from top    {st['conc_all']:>10.1%}",
                 f"  (bottom {1 - st['conc_all']:.1%} of paths",
                 "   collectively net to zero)",
