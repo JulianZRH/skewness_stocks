@@ -187,17 +187,29 @@ class SimulatorApp:
 
         self.figures = {}
         self.canvases = {}
+        self.hist_scale = tk.StringVar(value="log")
         for name, title in [("hist", "Distribution"),
                             ("paths", "Sample paths"),
                             ("sweep", "Volatility sweep")]:
             frame = ttk.Frame(self.notebook)
             self.notebook.add(frame, text=title)
+            if name == "hist":
+                bar = ttk.Frame(frame)
+                bar.pack(side=tk.TOP, anchor="w", padx=8, pady=4)
+                ttk.Label(bar, text="x-axis:").pack(side=tk.LEFT)
+                for text, value in [("Log scale", "log"),
+                                    ("Linear scale", "linear")]:
+                    ttk.Radiobutton(bar, text=text, value=value,
+                                    variable=self.hist_scale,
+                                    command=self.replot_hist).pack(
+                        side=tk.LEFT, padx=6)
             fig = Figure(figsize=(7, 5.5), dpi=100)
             canvas = FigureCanvasTkAgg(fig, master=frame)
             canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
             NavigationToolbar2Tk(canvas, frame)
             self.figures[name] = fig
             self.canvases[name] = canvas
+        self.last_run = None
 
     # ------------------------------------------------------------------
     def read_inputs(self):
@@ -244,11 +256,21 @@ class SimulatorApp:
                                p["steps_per_year"], n_show, rng_paths)
 
         stats = summary_stats(terminal, p["years"], p["risk_free"])
+        self.last_run = (terminal, stats, p)
         self.show_stats(stats, p)
-        plot_histogram(self.figures["hist"], terminal, stats, p)
+        plot_histogram(self.figures["hist"], terminal, stats, p,
+                       scale=self.hist_scale.get())
         plot_paths(self.figures["paths"], paths, p, stats)
         self.canvases["hist"].draw()
         self.canvases["paths"].draw()
+
+    def replot_hist(self):
+        if self.last_run is None:
+            return
+        terminal, stats, p = self.last_run
+        plot_histogram(self.figures["hist"], terminal, stats, p,
+                       scale=self.hist_scale.get())
+        self.canvases["hist"].draw()
 
     def run_sweep(self):
         p = self.read_inputs()
@@ -272,6 +294,10 @@ class SimulatorApp:
             f"  Median          {st['median']:>10.2f}x",
             f"  5% quantile     {st['p05']:>10.2f}x",
             f"  95% quantile    {st['p95']:>10.2f}x",
+            "",
+            "Lifetime (buy & hold) return",
+            f"  mean          {st['mean'] - 1:>+12,.1%}",
+            f"  median        {st['median'] - 1:>+12,.1%}",
             "",
             "Annualized (geometric)",
             f"  of mean         {st['mean_ann']:>10.2%}",
@@ -299,23 +325,41 @@ class SimulatorApp:
 # ----------------------------------------------------------------------
 
 
-def plot_histogram(fig, terminal, st, p):
+def plot_histogram(fig, terminal, st, p, scale="log"):
     fig.clear()
     ax = fig.add_subplot(111)
-    log_t = np.log10(terminal)
-    ax.hist(log_t, bins=80, color="#4878a8", edgecolor="white",
-            linewidth=0.3)
-    for value, color, label in [
-            (st["mean"], "#c0392b", f"mean {st['mean']:.1f}x"),
-            (st["median"], "#27ae60", f"median {st['median']:.1f}x"),
-            (1.0, "#7f8c8d", "break-even 1x")]:
-        ax.axvline(np.log10(value), color=color, linestyle="--",
-                   linewidth=1.4, label=label)
-    ticks = ax.get_xticks()
-    ax.xaxis.set_major_formatter(
-        FuncFormatter(lambda v, _: f"{10 ** v:g}x"))
-    ax.set_xticks(ticks)
-    ax.set_xlabel("Terminal wealth per $1 invested (log scale)")
+    markers = [(st["mean"], "#c0392b", f"mean {st['mean']:.1f}x"),
+               (st["median"], "#27ae60", f"median {st['median']:.1f}x"),
+               (1.0, "#7f8c8d", "break-even 1x")]
+    if scale == "log":
+        ax.hist(np.log10(terminal), bins=80, color="#4878a8",
+                edgecolor="white", linewidth=0.3)
+        for value, color, label in markers:
+            ax.axvline(np.log10(value), color=color, linestyle="--",
+                       linewidth=1.4, label=label)
+        ticks = ax.get_xticks()
+        ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda v, _: f"{10 ** v:g}x"))
+        ax.set_xticks(ticks)
+        ax.set_xlabel("Terminal wealth per $1 invested (log scale)")
+    else:
+        hi = np.quantile(terminal, 0.99)
+        clipped = terminal[terminal <= hi]
+        n_over = terminal.size - clipped.size
+        ax.hist(clipped, bins=80, color="#4878a8",
+                edgecolor="white", linewidth=0.3)
+        for value, color, label in markers:
+            if value > hi:
+                ax.plot([], [], color=color, linestyle="--",
+                        linewidth=1.4, label=label + " (off scale)")
+            else:
+                ax.axvline(value, color=color, linestyle="--",
+                           linewidth=1.4, label=label)
+        ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda v, _: f"{v:g}x"))
+        ax.set_xlabel(
+            f"Terminal wealth per $1 invested (linear scale, "
+            f"top 1% = {n_over} paths beyond axis)")
     ax.set_ylabel("Number of paths")
     ax.set_title(
         f"Terminal wealth after {p['years']:.0f} years  "

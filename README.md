@@ -23,17 +23,20 @@ median[terminal wealth] = (1 + R)^T · exp(−σ²·T/2)
 
 The GUI shows three views:
 
-- **Distribution** — histogram of terminal wealth (log scale) with mean,
-  median and break-even marked
+- **Distribution** — histogram of terminal wealth with mean, median and
+  break-even marked; switchable between log scale (distribution looks
+  symmetric) and linear scale (the raw skew is visible, clipped at the
+  99th percentile)
 - **Sample paths** — 100 simulated wealth paths vs. the expected-value
   path
 - **Volatility sweep** — median annualized return, share of paths ending
   positive and share beating the mean, as a function of volatility
   (all at the same expected return)
 
-plus a stats panel with mean/median terminal wealth, quantiles, skewness
-and the share of paths that end positive, beat the risk-free asset, or
-beat the mean outcome.
+plus a stats panel with mean/median terminal wealth, lifetime
+(buy-and-hold) percentage returns as reported in the paper, quantiles,
+skewness and the share of paths that end positive, beat the risk-free
+asset, or beat the mean outcome.
 
 ![Distribution](example_distribution.png)
 ![Volatility sweep](example_sweep.png)
